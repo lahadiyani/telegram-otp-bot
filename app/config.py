@@ -7,7 +7,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-# Muat .env jika ada (lokal). Di Heroku, env vars sudah diset otomatis.
+# Muat .env jika ada (lokal).
 load_dotenv()
 
 
@@ -71,13 +71,13 @@ class Settings:
                 f"API_ID harus berupa angka, diterima: {api_id_raw!r}"
             )
 
-        # Redis URL: Heroku menyediakan REDIS_URL otomatis via add-on.
+        # Redis URL: Railway menyediakan REDIS_URL otomatis.
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0").strip()
 
-        # URL publik untuk webhook (Heroku app URL)
+        # URL publik untuk webhook
         webhook_url = os.getenv("WEBHOOK_URL", "").strip().rstrip("/")
 
-        # PORT: Heroku menyediakan secara otomatis
+        # PORT: Railway menyediakan secara otomatis
         port = _get_int("PORT", 8443)
         webhook_path = os.getenv("WEBHOOK_PATH", "/webhook").strip()
         # Pastikan path diawali dengan /
@@ -110,10 +110,20 @@ class Settings:
         """Memastikan konfigurasi cukup untuk menjalankan webhook mode."""
         if not self.webhook_url:
             raise RuntimeError(
-                "WEBHOOK_URL belum diset. Set ke URL publik aplikasi Heroku Anda, "
-                "misalnya: https://nama-app.herokuapp.com"
+                "WEBHOOK_URL belum diset. Set ke URL publik aplikasi Anda."
             )
 
 
-# Singleton settings yang dimuat sekali saat import
-settings = Settings.from_env()
+# --- PERBAIKAN UTAMA (Lazy Proxy) ---
+# Menggunakan objek proxy/fungsi agar tidak langsung crash saat modul di-import,
+# melainkan dibaca saat pertama kali benar-benar diakses oleh aplikasi.
+class _SettingsProxy:
+    _instance: Optional[Settings] = None
+
+    def __getattr__(self, name):
+        if self._instance is None:
+            self._instance = Settings.from_env()
+        return getattr(self._instance, name)
+
+# `settings` sekarang aman di-import kapan saja tanpa langsung crash
+settings = _SettingsProxy()
