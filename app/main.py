@@ -1,7 +1,19 @@
-"""Entry point aplikasi Telegram OTP Bot untuk Railway."""
+"""Entry point aplikasi Telegram OTP Bot untuk Railway.
+
+Catatan kompatibilitas:
+- Python 3.14+ menghapus auto-create event loop di asyncio.get_event_loop().
+  Karena itu kita TIDAK memakai application.run_webhook() (helper sinkron PTB
+  yang masih memanggil asyncio.get_event_loop() internal), melainkan menjalankan
+  lifecycle Application secara manual di dalam asyncio.run().
+
+- SIGTERM (yang dikirim Railway saat stop/redeploy) ditangani via
+  loop.add_signal_handler() agar shutdown graceful (Redis & Telethon
+  di-cleanup dengan benar sebelum container mati).
+"""
 from __future__ import annotations
 
 import asyncio
+import signal
 import sys
 
 from telegram.ext import Application
@@ -10,7 +22,7 @@ from .bot_handlers import register_handlers
 from .config import settings
 from .logger import get_logger, setup_logging
 from .storage import storage
-from .telethon_manager import init_telethon_manager, get_telethon_manager
+from .telethon_manager import get_telethon_manager, init_telethon_manager
 
 log = get_logger(__name__)
 
@@ -39,10 +51,16 @@ async def post_stop(application: Application) -> None:
 
 
 def build_application() -> Application:
-    application = Application.builder().token(settings.bot_token).build()
+    # post_init & post_stop di-hook via builder (cara resmi PTB v20+),
+    # bukan assignment attribute langsung.
+    application = (
+        Application.builder()
+        .token(settings.bot_token)
+        .post_init(post_init)
+        .post_stop(post_stop)
+        .build()
+    )
     register_handlers(application)
-    application.post_init = post_init
-    application.post_stop = post_stop
     return application
 
 
@@ -61,6 +79,7 @@ async def main_async() -> int:
     settings.validate_for_webhook()
     application = build_application()
 
+    # Lifecycle manual (bukan application.run_webhook) - aman untuk Python 3.15.
     await application.initialize()
     await application.start()
 
@@ -75,17 +94,29 @@ async def main_async() -> int:
 
     log.info("webhook_started", extra={"event": "webhook_start"})
 
+    # Tunggu sinyal shutdown (SIGTERM dari Railway, atau SIGINT/Ctrl+C).
+    # Penting: default SIGTERM handler Python langsung terminate tanpa cleanup,
+    # jadi kita replace dengan set Event agar finally block dijalankan.
     stop_signal = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, stop_signal.set)
+        except (NotImplementedError, RuntimeError):
+            # Fallback untuk platform yang tidak support add_signal_handler
+            # (mis. Windows). Railway/Linux pasti support.
+            signal.signal(sig, lambda *_: stop_signal.set())
+
+    await stop_signal.wait()
+
+    log.info("app_stopping", extra={"event": "app_stop"})
     try:
-        await stop_signal.wait()
-    except (KeyboardInterrupt, asyncio.CancelledError):
-        pass
-    finally:
-        log.info("app_stopping", extra={"event": "app_stop"})
         await application.updater.stop()
         await application.stop()
         await application.shutdown()
-        log.info("app_exited", extra={"event": "app_exit"})
+    except Exception as e:
+        log.warning("shutdown_error: %s", e)
+    log.info("app_exited", extra={"event": "app_exit"})
 
     return 0
 

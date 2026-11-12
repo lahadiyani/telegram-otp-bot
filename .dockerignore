@@ -1,0 +1,58 @@
+# .dockerignore - file yang tidak ikut ke Docker image
+# Mengurangi image size & mencegah leak .env / .session
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual env
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables (JANGAN masuk image!)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Telethon session files (sensitif!)
+sessions/
+*.session
+*.session-journal
+
+# Logs
+*.log
+logs/
+
+# IDE / Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Railway / Heroku / CI
+railway.toml
+Procfile
+runtime.txt
+README.md
+.env.example
+
+# Docker itu sendiri (hindari recursive build context)
+Dockerfile
+.dockerignore

@@ -1,0 +1,55 @@
+# railway.toml - Konfigurasi build & deploy untuk Railway
+# Docs: https://railway.com/docs/config-as-code
+#
+# Struktur project:
+#   .
+#   ├── app/                  # Package Python berisi bot
+#   │   ├── __init__.py
+#   │   ├── main.py           # Entry point: python -m app.main
+#   │   ├── bot_handlers.py
+#   │   ├── config.py
+#   │   ├── constants.py
+#   │   ├── keyboards.py
+#   │   ├── logger.py
+#   │   ├── otp_service.py
+#   │   ├── rate_limiter.py
+#   │   ├── storage.py
+#   │   └── telethon_manager.py
+#   ├── requirements.txt
+#   ├── runtime.txt           # Pin Python 3.12.7
+#   ├── railway.toml
+#   └── .env.example
+
+[deploy]
+# Perintah start container.
+# Wajib pakai `python -m app.main` agar relative import (`from .config import ...`)
+# di package `app/` berfungsi dengan benar.
+startCommand = "python -m app.main"
+
+# Restart otomatis jika container crash.
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+# Railway akan send SIGTERM saat stop/redeploy.
+# main.py sudah handle SIGTERM via loop.add_signal_handler() → graceful shutdown.
+
+# ============================================================
+# Environment Variables (set di Railway Dashboard → Variables)
+# ============================================================
+# WAJIB (diisi manual):
+#   BOT_TOKEN        → dari @BotFather, mis. 123456789:ABC-DEF...
+#   API_ID           → dari https://my.telegram.org (angka)
+#   API_HASH         → dari https://my.telegram.org (hex string)
+#   WEBHOOK_URL      → URL publik Railway, mis. https://bot-otp-anda.up.railway.app
+#
+# OTOMATIS dari Railway:
+#   REDIS_URL        → diisi otomatis saat tambah Redis plugin
+#   PORT             → diisi otomatis oleh Railway
+#
+# OPSIONAL (default ada di config.py):
+#   OTP_EXPIRY_SECONDS         (default 180)
+#   OTP_RESEND_COOLDOWN        (default 180)
+#   OTP_MAX_ATTEMPTS           (default 3)
+#   RATE_LIMIT_MAX_REQUESTS    (default 3)
+#   RATE_LIMIT_WINDOW           (default 600)
+#   WEBHOOK_PATH                (default /webhook)

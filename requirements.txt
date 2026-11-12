@@ -1,15 +1,23 @@
-# Telegram Bot
-python-telegram-bot[webhooks]==22.0
+# Dependencies untuk Telegram OTP Bot
+# Pin ke versi stabil yang kompatibel dengan Python 3.12
 
-# Telethon - Telegram Client API untuk OTP resmi
+# Telegram Bot API (async, v21+)
+python-telegram-bot[ext]==21.6
+
+# Telethon - untuk OTP resmi via Telegram Client API
 telethon==1.36.0
 
 # Redis async client
-redis[hiredis]==5.0.8
+redis==5.0.8
 
-# Web server untuk webhook (dibutuhkan oleh python-telegram-bot webhook)
-tornado==6.4.1
+# Validasi nomor HP (E.164)
+phonenumbers==8.13.46
 
-# Environment & utility
-python-dotenv==1.1.0
-phonenumbers==8.13.45
+# Load .env untuk lokal dev (Railway/Heroku sudah auto-set env)
+python-dotenv==1.0.1
+
+# Cryptography - dependency Telethon, pastikan versi aman
+cryptography==43.0.1
+
+# Pysocks - kadang dibutuhkan Telethon untuk koneksi proxy
+pysocks==1.7.1

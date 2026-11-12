@@ -4,48 +4,54 @@ __pycache__/
 *$py.class
 *.so
 .Python
-*.egg
 *.egg-info/
-dist/
-build/
-eggs/
-sames/
-wheels/
-*.manifest
-*.spec
-pip-log.txt
-pip-delete-this-directory.txt
+.installed.cfg
+*.egg
 
-# Virtual environments
+# Virtual env
+.venv/
 venv/
 env/
 ENV/
-.venv/
-.env
-Procfile
+env.bak/
+venv.bak/
 code2mark.py
-agents/
 
-# Telethon session files (JANGAN commit - berisi auth key)
-sessions/*.session
-sessions/*.session-journal
+# Environment variables (JANGAN COMMIT!)
+.env
+.env.local
+.env.production
+.env.*.local
 
-# SQLite files (jika ada)
-*.db
-*.sqlite
-*.sqlite3
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
+# Telethon session files (sensitif - berisi auth_key Telegram)
+sessions/
+*.session
+*.session-journal
 
 # Logs
 *.log
 logs/
 
-# Heroku
-.env.local
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Railway / Heroku
+railway.json.bak
 .heroku/
+
+# Build artifacts
+build/
+dist/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
