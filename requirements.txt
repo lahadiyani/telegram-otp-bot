@@ -1,23 +1,24 @@
 # Dependencies untuk Telegram OTP Bot
-# Pin ke versi stabil yang kompatibel dengan Python 3.12
+# Pin ke versi yang kompatibel dengan Python 3.12
 
-# Telegram Bot API (async, v21+)
+# Telegram Bot API (async, v21+). Pakai v21.6 karena v22.0 masih punya
+# bug asyncio.get_event_loop() yang pecah di Python 3.14+.
 python-telegram-bot[ext]==21.6
 
 # Telethon - untuk OTP resmi via Telegram Client API
 telethon==1.36.0
 
 # Redis async client
-redis==5.0.8
+redis[hiredis]==5.0.8
 
 # Validasi nomor HP (E.164)
 phonenumbers==8.13.46
 
-# Load .env untuk lokal dev (Railway/Heroku sudah auto-set env)
+# Load .env untuk dev lokal
 python-dotenv==1.0.1
 
-# Cryptography - dependency Telethon, pastikan versi aman
+# Cryptography - dependency Telethon
 cryptography==43.0.1
 
-# Pysocks - kadang dibutuhkan Telethon untuk koneksi proxy
+# Pysocks - dibutuhkan Telethon untuk koneksi
 pysocks==1.7.1
