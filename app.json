@@ -1,0 +1,80 @@
+{
+  "name": "telegram-otp-bot",
+  "description": "Bot Telegram untuk verifikasi OTP resmi via Telethon (Telegram Client API) dengan numeric keypad, rate limiting, dan resend timer. Dioptimalkan untuk hosting di Heroku (webhook + Redis add-on).",
+  "repository": "https://github.com/your-username/telegram-otp-bot",
+  "keywords": [
+    "telegram",
+    "bot",
+    "otp",
+    "telethon",
+    "verification",
+    "heroku",
+    "python"
+  ],
+  "website": "https://github.com/your-username/telegram-otp-bot",
+  "env": {
+    "BOT_TOKEN": {
+      "description": "Token bot Telegram dari @BotFather. Format: 123456789:ABCdef...",
+      "value": "",
+      "required": true
+    },
+    "API_ID": {
+      "description": "API ID dari https://my.telegram.org → API Development Tools. Hanya angka.",
+      "value": "",
+      "required": true
+    },
+    "API_HASH": {
+      "description": "API Hash dari https://my.telegram.org → API Development Tools.",
+      "value": "",
+      "required": true
+    },
+    "WEBHOOK_URL": {
+      "description": "URL publik aplikasi Heroku Anda, misalnya https://nama-app.herokuapp.com (tanpa trailing slash).",
+      "value": "",
+      "required": true
+    },
+    "OTP_EXPIRY_SECONDS": {
+      "description": "Masa berlaku OTP dalam detik (default 180 = 3 menit).",
+      "value": "180",
+      "required": false
+    },
+    "OTP_RESEND_COOLDOWN": {
+      "description": "Cooldown kirim ulang OTP dalam detik (default 180 = 3 menit).",
+      "value": "180",
+      "required": false
+    },
+    "OTP_MAX_ATTEMPTS": {
+      "description": "Maksimal percobaan input OTP salah (default 3).",
+      "value": "3",
+      "required": false
+    },
+    "RATE_LIMIT_MAX_REQUESTS": {
+      "description": "Maksimal request OTP baru per window per user (default 3).",
+      "value": "3",
+      "required": false
+    },
+    "RATE_LIMIT_WINDOW": {
+      "description": "Window rate limit dalam detik (default 600 = 10 menit).",
+      "value": "600",
+      "required": false
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-redis:mini",
+      "as": "REDIS"
+    }
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "eco"
+    }
+  },
+  "stack": "heroku-24"
+}

@@ -1,0 +1,15 @@
+# Telegram Bot
+python-telegram-bot[webhooks]==22.0
+
+# Telethon - Telegram Client API untuk OTP resmi
+telethon==1.36.0
+
+# Redis async client
+redis[hiredis]==5.0.8
+
+# Web server untuk webhook (dibutuhkan oleh python-telegram-bot webhook)
+tornado==6.4.1
+
+# Environment & utility
+python-dotenv==1.1.0
+phonenumbers==8.13.45
