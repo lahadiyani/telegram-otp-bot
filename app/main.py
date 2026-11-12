@@ -1,7 +1,6 @@
-"""Entry point aplikasi Telegram OTP Bot untuk Railway/Heroku.
+"""Entry point aplikasi Telegram OTP Bot untuk Railway.
 
 Menjalankan webhook mode dengan bind ke PORT yang disediakan platform.
-Telegram akan mengirim update ke {WEBHOOK_URL}{WEBHOOK_PATH}.
 """
 from __future__ import annotations
 
@@ -20,29 +19,22 @@ from .telethon_manager import init_telethon_manager, get_telethon_manager
 log = get_logger(__name__)
 
 
-# ============================================================
-# Lifecycle hooks (async - dipanggil python-telegram-bot)
-# ============================================================
-
-
 async def post_init(application: Application) -> None:
     """Dipanggil setelah Application.initialize() tapi sebelum menerima update."""
     log.info("post_init_starting", extra={"event": "post_init_start"})
-
+    
     # 1. Redis - WAJIB connect sebelum bisa menyimpan OTP state
     storage.configure(settings.redis_url)
     await storage.connect()
 
-    # 2. Telethon manager (clients akan di-create on-demand per user)
+    # 2. Telethon manager
     init_telethon_manager()
-
     log.info("post_init_done", extra={"event": "post_init_done"})
 
 
 async def post_stop(application: Application) -> None:
     """Dipanggil setelah Application.stop() selesai."""
     log.info("post_stop_starting", extra={"event": "post_stop_start"})
-
     try:
         manager = get_telethon_manager()
         await manager.close_all()
@@ -53,26 +45,15 @@ async def post_stop(application: Application) -> None:
         await storage.close()
     except Exception as e:
         log.warning("redis_close_failed: %s", e)
-
     log.info("post_stop_done", extra={"event": "post_stop_done"})
-
-
-# ============================================================
-# Main Application Builder & Runner
-# ============================================================
 
 
 def build_application() -> Application:
     """Bangun Application python-telegram-bot dengan semua handler & hooks."""
     application = Application.builder().token(settings.bot_token).build()
-
-    # Daftarkan handler (command, contact, callback)
     register_handlers(application)
-
-    # Hooks lifecycle
     application.post_init = post_init
     application.post_stop = post_stop
-
     return application
 
 
@@ -89,20 +70,18 @@ async def main_async() -> int:
         },
     )
 
-    # Validasi config webhook SEBELUM build application
     settings.validate_for_webhook()
-
     application = build_application()
 
-    # Inisialisasi manual aplikasi agar hooks post_init berjalan dengan benar
+    # Inisialisasi dan jalankan aplikasi secara asinkron
     await application.initialize()
     await application.start()
 
-    # Mulai webhook server secara asinkron (kompatibel dengan Python terbaru)
+    # Jalankan webhook secara aman tanpa error event loop
     await application.updater.start_webhook(
         listen="0.0.0.0",
         port=settings.port,
-        url_path="webhook",
+        url_path=settings.webhook_path.lstrip("/"),
         webhook_url=settings.webhook_full_url,
         drop_pending_updates=True,
         allowed_updates=["message", "callback_query", "chat_member"],
@@ -110,19 +89,9 @@ async def main_async() -> int:
 
     log.info("webhook_started", extra={"event": "webhook_start"})
 
-    # Gunakan event untuk menjaga agar server tetap hidup sampai sinyal berhenti diterima
+    # Menjaga server tetap hidup sampai sinyal berhenti diterima
     stop_signal = asyncio.Event()
-    
-    def _signal_handler():
-        stop_signal.set()
-
-    # Daftarkan penanganan event loop untuk shutdown yang bersih
-    loop = asyncio.get_running_loop()
-    for sig in (asyncio.coroutines,):  # placeholder loop safety
-        pass
-
     try:
-        # Menunggu sampai aplikasi dihentikan (misal SIGTERM dari Railway)
         await stop_signal.wait()
     except (KeyboardInterrupt, asyncio.CancelledError):
         pass
@@ -137,9 +106,8 @@ async def main_async() -> int:
 
 
 def main() -> int:
-    """Synchronous entry point penampung async_run."""
+    """Synchronous entry point penampung asyncio.run."""
     try:
-        # asyncio.run menangani pembuatan dan penutupan event loop dengan aman
         return asyncio.run(main_async())
     except KeyboardInterrupt:
         return 0
