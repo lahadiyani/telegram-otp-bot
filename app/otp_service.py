@@ -461,6 +461,11 @@ class OtpService:
     async def get_cooldown_remaining(self, user_id: int) -> int:
         """Sisa detik cooldown kirim ulang."""
         return await storage.get_cooldown_remaining(user_id)
+    
+    async def fetch_incoming_otp(self, user_id: int) -> Optional[str]:
+        """Menunggu dan mengambil kode OTP masuk otomatis via Telethon."""
+        manager = get_telethon_manager()
+        return await manager.wait_for_otp_code(user_id, timeout=60)
 
 
 # ============================================================
