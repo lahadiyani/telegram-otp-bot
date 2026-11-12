@@ -24,7 +24,6 @@ from .keyboards import (
     cancel_keyboard,
     otp_input_keyboard,
     otp_input_keyboard_with_disabled_resend,
-    request_phone_keyboard,
 )
 from .logger import get_logger
 from .otp_service import OtpService, SendOtpStatus, VerifyOtpStatus, otp_service
@@ -101,7 +100,7 @@ async def _update_otp_input_message(
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler /start - kirim pesan welcome + tombol request phone."""
+    """Handler /start - kirim pesan welcome + instruksi input nomor HP teks."""
     user = update.effective_user
     log.info(
         "start_command",
@@ -117,9 +116,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         parse_mode=ParseMode.MARKDOWN,
     )
     await update.effective_message.reply_text(
-        C.REQUEST_PHONE_MSG,
+        "📱 Silakan ketik dan kirim nomor HP tujuan secara langsung di chat ini (contoh: `+628123456789`).\n\n"
+        "Bisa menggunakan nomor Anda sendiri maupun nomor lain.",
         parse_mode=ParseMode.MARKDOWN,
-        reply_markup=request_phone_keyboard(),
     )
 
 
@@ -144,60 +143,43 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 # ============================================================
-# Contact Handler (menerima nomor HP dari KeyboardButton)
+# Text Phone Handler (menerima input nomor HP secara bebas via teks)
 # ============================================================
 
 
-async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler ketika user menekan tombol 'Kirim Nomor HP' (request_contact=True).
-
-    Memastikan:
-    - Pesan contact datang dari user yang sama dengan pemilik nomor (anti spoofing)
-    - Format nomor valid
-    - Trigger OTP resmi via Telethon
-    """
-    if not update.message or not update.message.contact:
+async def text_phone_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handler untuk menerima input teks nomor HP secara bebas (nomor sendiri/lain)."""
+    if not update.message or not update.message.text:
         return
 
     user = update.effective_user
-    contact = update.message.contact
+    raw_text = update.message.text.strip()
 
-    # 1. Verifikasi nomor HP benar-benar milik user yang menekan tombol
-    #    Telegram mengisi contact.user_id dengan ID user pemilik nomor (jika ada di kontak Telegram)
-    if contact.user_id is not None and contact.user_id != user.id:
-        log.warning(
-            "phone_not_owned",
-            extra={
-                "event": "phone_not_owned",
-                "user_id": user.id,
-                "contact_user_id": contact.user_id,
-            },
-        )
-        await update.message.reply_text(
-            "❌ Nomor HP ini bukan milik akun Anda.\n"
-            "Silakan gunakan nomor yang terhubung dengan akun Telegram Anda.",
-            reply_markup=ReplyKeyboardRemove(),
-        )
+    # Abaikan jika diawali perintah command (/)
+    if raw_text.startswith("/"):
         return
 
-    raw_phone = contact.phone_number or ""
+    # Validasi ringan: pastikan format menyerupai nomor (diawali + atau angka)
+    if not raw_text.startswith("+") and not raw_text.isdigit():
+        return
+
     log.info(
-        "contact_received",
+        "free_text_phone_received",
         extra={
-            "event": "contact_received",
-            "user_id": user.id,
-            "phone": raw_phone,
+            "event": "free_text_phone_received",
+            "user_id": user.id if user else None,
+            "target_phone": raw_text,
         },
     )
 
-    # 2. Kirim OTP via service
-    outcome = await otp_service.send_otp(user_id=user.id, raw_phone=raw_phone)
+    # 1. Kirim OTP via service ke nomor yang diketik user
+    outcome = await otp_service.send_otp(user_id=user.id, raw_phone=raw_text)
 
-    # 3. Handle outcome
+    # 2. Handle outcome
     if outcome.status == SendOtpStatus.SUCCESS:
         expiry_menit = max(1, outcome.expiry_seconds // 60)
         await update.message.reply_text(
-            C.OTP_SENT_MSG.format(expiry_menit=expiry_menit),
+            f"📱 Nomor tujuan: `{raw_text}`\n\n" + C.OTP_SENT_MSG.format(expiry_menit=expiry_menit),
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=ReplyKeyboardRemove(),
         )
@@ -208,7 +190,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text(
             C.PHONE_INVALID_MSG,
             parse_mode=ParseMode.MARKDOWN,
-            reply_markup=request_phone_keyboard(),
         )
 
     elif outcome.status == SendOtpStatus.RATE_LIMITED:
@@ -241,7 +222,7 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "send_otp_error_to_user",
             extra={
                 "event": "send_otp_error",
-                "user_id": user.id,
+                "user_id": user.id if user else None,
                 "phone": outcome.phone,
                 "error": outcome.error_message,
             },
@@ -503,8 +484,8 @@ def register_handlers(application) -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("cancel", cancel_command))
 
-    # Contact handler (untuk request_contact)
-    application.add_handler(MessageHandler(filters.CONTACT, contact_handler))
+    # Text phone handler (menangkap input teks nomor HP bebas, menggantikan tombol kontak)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_phone_handler))
 
     # Callback query handlers (urutan PENTING - paling spesifik dulu)
     # Digit: otp:digit:N
