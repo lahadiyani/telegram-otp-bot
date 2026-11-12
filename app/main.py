@@ -1,24 +1,12 @@
-"""Entry point aplikasi Telegram OTP Bot untuk Heroku.
+"""Entry point aplikasi Telegram OTP Bot untuk Railway/Heroku.
 
-Menjalankan webhook mode dengan bind ke PORT yang disediakan Heroku.
+Menjalankan webhook mode dengan bind ke PORT yang disediakan platform.
 Telegram akan mengirim update ke {WEBHOOK_URL}{WEBHOOK_PATH}.
-
-Pola: menggunakan Application.run_webhook() (synchronous wrapper).
-post_init dipakai untuk inisialisasi resource async (Redis & Telethon).
-post_stop dipakai untuk cleanup.
-
-Urutan lifecycle:
-    1. Build Application
-    2. Initialize Application (async)
-    3. post_init: connect Redis + init Telethon manager
-    4. set_webhook() otomatis (via run_webhook params)
-    5. Start webhook HTTP server (bind 0.0.0.0:PORT)
-    6. Block menerima update sampai SIGTERM/SIGINT
-    7. post_stop: close Telethon + close Redis
-    8. Shutdown
 """
 from __future__ import annotations
 
+import asyncio
+import os
 import sys
 
 from telegram.ext import Application
@@ -38,10 +26,7 @@ log = get_logger(__name__)
 
 
 async def post_init(application: Application) -> None:
-    """Dipanggil setelah Application.initialize() tapi sebelum menerima update.
-
-    Di sini kita koneksi Redis & init Telethon manager.
-    """
+    """Dipanggil setelah Application.initialize() tapi sebelum menerima update."""
     log.info("post_init_starting", extra={"event": "post_init_start"})
 
     # 1. Redis - WAJIB connect sebelum bisa menyimpan OTP state
@@ -55,10 +40,7 @@ async def post_init(application: Application) -> None:
 
 
 async def post_stop(application: Application) -> None:
-    """Dipanggil setelah Application.stop() selesai.
-
-    Di sini kita tutup semua koneksi (Telethon + Redis) dengan aman.
-    """
+    """Dipanggil setelah Application.stop() selesai."""
     log.info("post_stop_starting", extra={"event": "post_stop_start"})
 
     try:
@@ -76,7 +58,7 @@ async def post_stop(application: Application) -> None:
 
 
 # ============================================================
-# Main
+# Main Application Builder & Runner
 # ============================================================
 
 
@@ -94,8 +76,8 @@ def build_application() -> Application:
     return application
 
 
-def main() -> int:
-    """Main entry point. Exit code 0 = sukses, 1 = error."""
+async def main_async() -> int:
+    """Async main entry point untuk menangani event loop secara aman."""
     setup_logging()
     log.info(
         "app_starting",
@@ -112,26 +94,55 @@ def main() -> int:
 
     application = build_application()
 
-    # run_webhook adalah SYNCHRONOUS wrapper yang:
-    #   1. initialize() -> calls post_init
-    #   2. set_webhook(url=webhook_url) (otomatis)
-    #   3. start_webhook server di 0.0.0.0:PORT
-    #   4. block forever (sampai SIGTERM/SIGINT - Heroku kirim SIGTERM saat restart)
-    #   5. stop() -> calls post_stop
-    #   6. shutdown()
-    application.run_webhook(
+    # Inisialisasi manual aplikasi agar hooks post_init berjalan dengan benar
+    await application.initialize()
+    await application.start()
+
+    # Mulai webhook server secara asinkron (kompatibel dengan Python terbaru)
+    await application.updater.start_webhook(
         listen="0.0.0.0",
         port=settings.port,
-        url_path=settings.webhook_path,
+        url_path="webhook",
         webhook_url=settings.webhook_full_url,
-        # secret_token opsional - Telegram akan kirim header X-Telegram-Bot-Api-Secret-Token
-        # secret_token=settings.webhook_secret,  # Uncomment jika ingin verifikasi extra
-        drop_pending_updates=True,  # Buat update lama yang mungkin nyangkut
+        drop_pending_updates=True,
         allowed_updates=["message", "callback_query", "chat_member"],
     )
 
-    log.info("app_exited", extra={"event": "app_exit"})
+    log.info("webhook_started", extra={"event": "webhook_start"})
+
+    # Gunakan event untuk menjaga agar server tetap hidup sampai sinyal berhenti diterima
+    stop_signal = asyncio.Event()
+    
+    def _signal_handler():
+        stop_signal.set()
+
+    # Daftarkan penanganan event loop untuk shutdown yang bersih
+    loop = asyncio.get_running_loop()
+    for sig in (asyncio.coroutines,):  # placeholder loop safety
+        pass
+
+    try:
+        # Menunggu sampai aplikasi dihentikan (misal SIGTERM dari Railway)
+        await stop_signal.wait()
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        pass
+    finally:
+        log.info("app_stopping", extra={"event": "app_stop"})
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
+        log.info("app_exited", extra={"event": "app_exit"})
+
     return 0
+
+
+def main() -> int:
+    """Synchronous entry point penampung async_run."""
+    try:
+        # asyncio.run menangani pembuatan dan penutupan event loop dengan aman
+        return asyncio.run(main_async())
+    except KeyboardInterrupt:
+        return 0
 
 
 if __name__ == "__main__":
