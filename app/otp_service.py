@@ -463,5 +463,20 @@ class OtpService:
         return await storage.get_cooldown_remaining(user_id)
 
 
-# Singleton service - diinisialisasi saat import
-otp_service = OtpService()
+# ============================================================
+# Lazy Initialization (Proxy Pattern) untuk Mencegah Crash Saat Import
+# ============================================================
+_otp_service_instance: Optional[OtpService] = None
+
+def get_otp_service() -> OtpService:
+    global _otp_service_instance
+    if _otp_service_instance is None:
+        _otp_service_instance = OtpService()
+    return _otp_service_instance
+
+class _OtpServiceProxy:
+    def __getattr__(self, name):
+        return getattr(get_otp_service(), name)
+
+# `otp_service` sekarang aman di-import kapan saja tanpa langsung crash
+otp_service = _OtpServiceProxy()
