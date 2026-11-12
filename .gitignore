@@ -22,6 +22,7 @@ env/
 ENV/
 .venv/
 .env
+Procfile
 
 # Telethon session files (JANGAN commit - berisi auth key)
 sessions/*.session
