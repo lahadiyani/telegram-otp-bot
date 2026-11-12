@@ -23,6 +23,7 @@ ENV/
 .venv/
 .env
 Procfile
+code2mark.py
 
 # Telethon session files (JANGAN commit - berisi auth key)
 sessions/*.session
