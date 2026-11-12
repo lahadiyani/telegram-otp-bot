@@ -52,13 +52,19 @@ class Settings:
     def from_env(cls) -> "Settings":
         """Baca semua konfigurasi dari environment variables."""
         
-        # --- DEBUGGING RAILWAY ENV ---
-        print("--- DEBUGGING ENV RAILWAY ---")
-        print("BOT_TOKEN:", repr(os.getenv("BOT_TOKEN")))
-        print("API_ID:", repr(os.getenv("API_ID")))
-        print("API_HASH:", repr(os.getenv("API_HASH")))
-        print("-----------------------------")
-        # -----------------------------
+        # --- EXTENDED DEBUGGING RAILWAY ENV ---
+        print("========================================")
+        print("--- EXTENDED DEBUGGING ENV RAILWAY ---")
+        print("BOT_TOKEN   :", repr(os.getenv("BOT_TOKEN")))
+        print("API_ID      :", repr(os.getenv("API_ID")))
+        print("API_HASH    :", repr(os.getenv("API_HASH")))
+        print("REDIS_URL   :", repr(os.getenv("REDIS_URL")))
+        print("WEBHOOK_URL :", repr(os.getenv("WEBHOOK_URL")))
+        print("PORT        :", repr(os.getenv("PORT")))
+        print("----------------------------------------")
+        print("Semua keys di os.environ:", sorted(list(os.environ.keys())))
+        print("========================================")
+        # --------------------------------------
 
         bot_token = os.getenv("BOT_TOKEN", "").strip()
         api_id_raw = os.getenv("API_ID", "").strip()
