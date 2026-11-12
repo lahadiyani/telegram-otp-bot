@@ -51,6 +51,15 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         """Baca semua konfigurasi dari environment variables."""
+        
+        # --- DEBUGGING RAILWAY ENV ---
+        print("--- DEBUGGING ENV RAILWAY ---")
+        print("BOT_TOKEN:", repr(os.getenv("BOT_TOKEN")))
+        print("API_ID:", repr(os.getenv("API_ID")))
+        print("API_HASH:", repr(os.getenv("API_HASH")))
+        print("-----------------------------")
+        # -----------------------------
+
         bot_token = os.getenv("BOT_TOKEN", "").strip()
         api_id_raw = os.getenv("API_ID", "").strip()
         api_hash = os.getenv("API_HASH", "").strip()
@@ -115,8 +124,6 @@ class Settings:
 
 
 # --- PERBAIKAN UTAMA (Lazy Proxy) ---
-# Menggunakan objek proxy/fungsi agar tidak langsung crash saat modul di-import,
-# melainkan dibaca saat pertama kali benar-benar diakses oleh aplikasi.
 class _SettingsProxy:
     _instance: Optional[Settings] = None
 
@@ -125,5 +132,5 @@ class _SettingsProxy:
             self._instance = Settings.from_env()
         return getattr(self._instance, name)
 
-# `settings` sekarang aman di-import kapan saja tanpa langsung crash
+# `settings` aman di-import kapan saja
 settings = _SettingsProxy()
