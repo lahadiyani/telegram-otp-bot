@@ -82,18 +82,24 @@ async def text_phone_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     outcome = await otp_service.send_otp(user_id=user.id, raw_phone=raw_text)
 
     if outcome.status != SendOtpStatus.SUCCESS:
-        await status_msg.edit_text(
-            f"❌ Gagal mengirim OTP: {outcome.error_message}",
-            parse_mode=ParseMode.MARKDOWN,
-        )
+        try:
+            await status_msg.edit_text(
+                f"❌ Gagal mengirim OTP: {outcome.error_message}",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        except Exception as e:
+            log.warning("gagal_edit_pesan_error: %s", e)
         return
 
-    # 2. Update status: Menunggu pesan masuk
-    await status_msg.edit_text(
-        f"📱 Nomor tujuan: `{raw_text}`\n"
-        f"✅ OTP terkirim! Menunggu pesan masuk dari Telegram...",
-        parse_mode=ParseMode.MARKDOWN,
-    )
+    # 2. Update status: Menunggu pesan masuk (Dibungkus try-except agar aman dari crash)
+    try:
+        await status_msg.edit_text(
+            f"📱 Nomor tujuan: `{raw_text}`\n"
+            f"✅ OTP terkirim! Menunggu pesan masuk dari Telegram...",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+    except Exception as e:
+        log.warning("gagal_edit_pesan_status: %s", e)
 
     # 3. Tangkap kode OTP secara otomatis dari pesan masuk Telegram
     otp_code = await otp_service.fetch_incoming_otp(user.id)
