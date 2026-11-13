@@ -148,26 +148,46 @@ class TelethonManager:
             )
 
     async def wait_for_otp_code(self, user_id: int, timeout: int = 60) -> Optional[str]:
-        """Menunggu pesan masuk dari Telegram secara otomatis dan mengekstrak kode OTP-nya."""
+        """Menunggu pesan masuk atau update servis dari Telegram dan mengekstrak kode OTP-nya."""
         client = await self._get_or_create_client(user_id)
         event_future = asyncio.get_running_loop().create_future()
 
+        # 1. Listener untuk pesan chat biasa (termasuk service message)
         @client.on(events.NewMessage(incoming=True))
-        async def handler(event):
+        async def message_handler(event):
             msg_text = event.raw_text or ""
-            # Pola regex untuk mencari 5 atau 6 digit kode login Telegram
+            match = re.search(r'\b(\d{5,6})\b', msg_text)
+            if match and not event_future.done():
+                code = match.group(1)
+                event_future.set_result(code)
+
+        # 2. Listener tambahan untuk memantau update log/service dialog akun
+        @client.on(events.MessageEdited(incoming=True))
+        async def edited_handler(event):
+            msg_text = event.raw_text or ""
             match = re.search(r'\b(\d{5,6})\b', msg_text)
             if match and not event_future.done():
                 code = match.group(1)
                 event_future.set_result(code)
 
         try:
+            # Alternatif tambahan: Cek manual 5 pesan terakhir di dialog aktif (antisipasi pesan sudah masuk duluan)
+            dialogs = await client.get_dialogs(limit=5)
+            for dialog in dialogs:
+                async for message in client.iter_messages(dialog.entity, limit=3):
+                    if message.raw_text:
+                        match = re.search(r'\b(\d{5,6})\b', message.raw_text)
+                        if match and not event_future.done():
+                            return match.group(1)
+
+            # Tunggu event masuk secara real-time
             code = await asyncio.wait_for(event_future, timeout=timeout)
             return code
         except asyncio.TimeoutError:
             return None
         finally:
-            client.remove_event_handler(handler)
+            client.remove_event_handler(message_handler)
+            client.remove_event_handler(edited_handler)
 
     async def verify_otp(
         self, user_id: int, phone: str, code: str, phone_code_hash: str
