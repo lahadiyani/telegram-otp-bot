@@ -56,8 +56,8 @@ class Settings:
         print("========================================")
         print("--- EXTENDED DEBUGGING ENV RAILWAY ---")
         print("BOT_TOKEN   :", repr(os.getenv("BOT_TOKEN")))
-        print("API_ID      :", repr(os.getenv("API_ID")))
-        print("API_HASH    :", repr(os.getenv("API_HASH")))
+        print("APP_ID      :", repr(os.getenv("APP_ID")))
+        print("APP_HASH    :", repr(os.getenv("APP_HASH")))
         print("REDIS_URL   :", repr(os.getenv("REDIS_URL")))
         print("WEBHOOK_URL :", repr(os.getenv("WEBHOOK_URL")))
         print("PORT        :", repr(os.getenv("PORT")))
@@ -67,8 +67,8 @@ class Settings:
         # --------------------------------------
 
         bot_token = os.getenv("BOT_TOKEN", "").strip()
-        api_id_raw = os.getenv("API_ID", "").strip()
-        api_hash = os.getenv("API_HASH", "").strip()
+        api_id_raw = os.getenv("APP_ID", "").strip()
+        api_hash = os.getenv("APP_HASH", "").strip()
 
         if not bot_token:
             raise RuntimeError(
@@ -76,14 +76,14 @@ class Settings:
             )
         if not api_id_raw or not api_hash:
             raise RuntimeError(
-                "API_ID dan API_HASH belum diset. Dapatkan dari https://my.telegram.org"
+                "APP_ID dan APP_HASH belum diset. Dapatkan dari https://my.telegram.org"
             )
 
         try:
             api_id = int(api_id_raw)
         except ValueError:
             raise RuntimeError(
-                f"API_ID harus berupa angka, diterima: {api_id_raw!r}"
+                f"APP_ID harus berupa angka, diterima: {api_id_raw!r}"
             )
 
         # Redis URL: Railway menyediakan REDIS_URL otomatis.
